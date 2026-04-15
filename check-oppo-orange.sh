@@ -84,20 +84,22 @@ main() {
 
   log "${VARIANT_NAME}: ${current_state}"
 
-  if [ "$current_state" = "AVAILABLE" ]; then
-    msg="[$(timestamp)] Oppo Find N6 Orange is AVAILABLE: ${BASE_URL}/products/${HANDLE}"
-    printf '%s\n' "$msg"
-    send_discord "$msg"
-    exit 0
-  fi
-
-  if [ "$current_state" = "UNAVAILABLE" ]; then
-    printf '[%s] %s is unavailable\n' "$(timestamp)" "$VARIANT_NAME"
-    exit 0
-  fi
-
-  printf '[%s] Unable to determine availability for %s\n' "$(timestamp)" "$VARIANT_NAME" >&2
-  exit 1
+  case "$current_state" in
+    AVAILABLE)
+      msg="[$(timestamp)] Oppo Find N6 Orange is AVAILABLE: ${BASE_URL}/products/${HANDLE}"
+      printf '%s\n' "$msg"
+      send_discord "$msg"
+      exit 0
+      ;;
+    UNAVAILABLE)
+      printf '[%s] %s is unavailable\n' "$(timestamp)" "$VARIANT_NAME"
+      exit 0
+      ;;
+    *)
+      printf '[%s] ERROR: unable to determine availability for %s\n' "$(timestamp)" "$VARIANT_NAME" >&2
+      exit 1
+      ;;
+  esac
 }
 
 main "$@"
