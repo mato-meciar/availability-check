@@ -2,7 +2,7 @@ name: Check Oppo Find N6 Orange
 
 on:
   schedule:
-    - cron: "8,18,29,39,49,58 * * * *"
+    - cron: "8,23,38,53 * * * *"
   workflow_dispatch:
     inputs:
       test_discord_only:
