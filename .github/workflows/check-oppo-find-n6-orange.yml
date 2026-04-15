@@ -4,12 +4,18 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+    inputs:
+      test_discord_only:
+        description: "Send a test Discord message only"
+        required: false
+        default: "false"
 
 jobs:
   check:
     runs-on: ubuntu-slim
     env:
       DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      TEST_DISCORD_ONLY: ${{ github.event.inputs.test_discord_only || 'false' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
