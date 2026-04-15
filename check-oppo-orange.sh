@@ -12,6 +12,8 @@ LOG_FILE="${LOG_FILE:-/tmp/oppo_find_n6_orange_check.log}"
 TMP_PRODUCT_JSON="${TMP_PRODUCT_JSON:-/tmp/oppo_find_n6_orange_product.json}"
 TMP_CART_PROBE="${TMP_CART_PROBE:-/tmp/oppo_find_n6_orange_cart_probe.json}"
 
+TEST_DISCORD_ONLY="${TEST_DISCORD_ONLY:-false}"
+
 timestamp() {
   date '+%Y-%m-%d %H:%M:%S'
 }
@@ -36,7 +38,18 @@ send_discord() {
 }
 
 get_product_json() {
-  curl -fsS "${BASE_URL}/products/${HANDLE}.js" -o "$TMP_PRODUCT_JSON"
+  curl -fsS \
+    -H 'Accept: application/json' \
+    -H 'User-Agent: Mozilla/5.0' \
+    "${BASE_URL}/products/${HANDLE}.js" \
+    -o "$TMP_PRODUCT_JSON"
+}
+
+validate_product_json() {
+  [ -s "$TMP_PRODUCT_JSON" ] || return 1
+
+  tr -d '\n' < "$TMP_PRODUCT_JSON" | grep -q '"variants":' || return 1
+  tr -d '\n' < "$TMP_PRODUCT_JSON" | grep -q "\"id\":${VARIANT_ID}" || return 1
 }
 
 extract_available_from_json() {
@@ -51,21 +64,45 @@ extract_available_from_json() {
 probe_cart_add() {
   http_code="$(curl -sS -o "$TMP_CART_PROBE" -w '%{http_code}' \
     "${BASE_URL}/cart/add.js" \
+    -H 'Accept: application/json' \
     -H 'Content-Type: application/json' \
+    -H 'User-Agent: Mozilla/5.0' \
     --data "{\"items\":[{\"id\":${VARIANT_ID},\"quantity\":1}]}" || true)"
 
   case "$http_code" in
     200) printf 'true' ;;
-    422) printf 'false' ;;
+    422)
+      if [ -s "$TMP_CART_PROBE" ]; then
+        if grep -qi 'sold out\|out of stock\|not enough stock\|cannot be added' "$TMP_CART_PROBE"; then
+          printf 'false'
+        else
+          printf 'unknown'
+        fi
+      else
+        printf 'unknown'
+      fi
+      ;;
     *)   printf 'unknown' ;;
   esac
 }
 
 main() {
+  if [ "$TEST_DISCORD_ONLY" = "true" ]; then
+    msg="[$(timestamp)] TEST: Discord webhook for Oppo Find N6 Orange check is working"
+    printf '%s\n' "$msg"
+    send_discord "$msg"
+    exit 0
+  fi
+
   current_state="UNKNOWN"
   available="unknown"
 
   get_product_json
+
+  if ! validate_product_json; then
+    printf '[%s] ERROR: product JSON missing/invalid or target variant not found\n' "$(timestamp)" >&2
+    exit 1
+  fi
 
   available="$(extract_available_from_json || true)"
   if [ -z "$available" ]; then
